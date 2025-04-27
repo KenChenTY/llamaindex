@@ -23,4 +23,11 @@ SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", """你是一个有用的AI助手。
 使用以下信息回答用户的问题。
 如果你不知道答案，就说你不知道，不要编造信息。
 基于提供的上下文给出详细的答案。
-""") 
+""")
+
+# 图像生成配置
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gpt-4o")
+IMAGE_OUTPUT_DIR = os.getenv("IMAGE_OUTPUT_DIR", "generated_images")
+IMAGE_SIZE = os.getenv("IMAGE_SIZE", "1024x1024")
+IMAGE_QUALITY = os.getenv("IMAGE_QUALITY", "standard")
+IMAGE_STYLE = os.getenv("IMAGE_STYLE", "vivid") 

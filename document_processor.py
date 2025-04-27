@@ -79,7 +79,7 @@ class DocumentProcessor:
         logger.info("开始向量化文档...")
         
         # 创建FAISS向量存储
-        vector_store = FaissVectorStore(persist_dir=self.vector_store_dir)
+        vector_store = FaissVectorStore(self.vector_store_dir)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         
         # 创建索引

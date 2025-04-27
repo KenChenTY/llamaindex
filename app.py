@@ -1,10 +1,11 @@
 import os
 import logging
 import argparse
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from document_processor import DocumentProcessor
 from query_engine import QueryEngine, DEFAULT_QUERY_TEMPLATE
+from image_generator import ImageGenerator
 from llama_index.core.prompts import PromptTemplate
 import config
 
@@ -51,6 +52,38 @@ def setup_argparse():
         type=str, 
         required=True,
         help='新的系统提示'
+    )
+    
+    # 图像生成命令
+    image_parser = subparsers.add_parser('generate_image', help='生成图像')
+    image_parser.add_argument(
+        '--prompt', 
+        type=str, 
+        required=True,
+        help='图像描述提示'
+    )
+    image_parser.add_argument(
+        '--size', 
+        type=str, 
+        default=config.IMAGE_SIZE,
+        help='图像尺寸 (1024x1024, 1792x1024, 1024x1792)'
+    )
+    image_parser.add_argument(
+        '--quality', 
+        type=str, 
+        default=config.IMAGE_QUALITY,
+        help='图像质量 (standard, hd)'
+    )
+    image_parser.add_argument(
+        '--style', 
+        type=str, 
+        default=config.IMAGE_STYLE,
+        help='图像风格 (vivid, natural)'
+    )
+    image_parser.add_argument(
+        '--analyze', 
+        action='store_true',
+        help='使用GPT-4o分析文本以创建更好的图像描述'
     )
     
     # 交互式命令
@@ -116,14 +149,68 @@ def update_system_prompt(new_prompt: str) -> None:
     
     print(f"系统提示已更新并保存到.env文件")
 
+def generate_image(prompt: str, 
+                  size: str = config.IMAGE_SIZE, 
+                  quality: str = config.IMAGE_QUALITY, 
+                  style: str = config.IMAGE_STYLE,
+                  analyze: bool = False) -> List[Dict[str, Any]]:
+    """
+    生成图像
+    
+    Args:
+        prompt: 图像描述提示
+        size: 图像尺寸
+        quality: 图像质量
+        style: 图像风格
+        analyze: 是否使用GPT-4o分析文本
+        
+    Returns:
+        生成的图像信息列表
+    """
+    generator = ImageGenerator(
+        output_dir=config.IMAGE_OUTPUT_DIR,
+        model=config.IMAGE_MODEL
+    )
+    
+    try:
+        if analyze:
+            print("正在使用GPT-4o分析文本以创建更好的图像描述...")
+            images = generator.generate_image_with_text_analysis(prompt)
+        else:
+            images = generator.generate_image(
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                style=style
+            )
+            
+        if images:
+            print(f"成功生成 {len(images)} 张图像:")
+            for img in images:
+                print(f"- 保存路径: {img['local_path']}")
+            return images
+        else:
+            print("图像生成失败")
+            return []
+            
+    except Exception as e:
+        print(f"图像生成出错: {str(e)}")
+        return []
+
 def interactive_mode():
     """交互式查询模式"""
     engine = QueryEngine()
+    generator = ImageGenerator(
+        output_dir=config.IMAGE_OUTPUT_DIR,
+        model=config.IMAGE_MODEL
+    )
     
     print("\n=== LlamaIndex RAG 交互式模式 ===")
     print("输入 'exit' 或 'quit' 退出")
     print("输入 'prompt' 更新系统提示")
     print("输入 'reload' 重新加载索引")
+    print("输入 'image:描述' 生成图像")
+    print("输入 'analyze_image:描述' 使用GPT-4o分析并生成图像")
     print("===================================\n")
     
     while True:
@@ -142,6 +229,26 @@ def interactive_mode():
         elif user_input.lower() == 'reload':
             engine = QueryEngine()
             print("索引已重新加载")
+            continue
+            
+        elif user_input.lower().startswith('image:'):
+            image_prompt = user_input[6:].strip()
+            if not image_prompt:
+                print("请提供图像描述")
+                continue
+                
+            print(f"正在生成图像: {image_prompt}")
+            generate_image(image_prompt)
+            continue
+            
+        elif user_input.lower().startswith('analyze_image:'):
+            image_prompt = user_input[14:].strip()
+            if not image_prompt:
+                print("请提供图像描述")
+                continue
+                
+            print(f"正在分析并生成图像: {image_prompt}")
+            generate_image(image_prompt, analyze=True)
             continue
         
         # 处理普通查询
@@ -178,6 +285,15 @@ def main():
     
     elif args.command == 'update_prompt':
         update_system_prompt(args.system_prompt)
+        
+    elif args.command == 'generate_image':
+        generate_image(
+            prompt=args.prompt,
+            size=args.size,
+            quality=args.quality,
+            style=args.style,
+            analyze=args.analyze
+        )
     
     elif args.command == 'interactive' or not args.command:
         # 默认使用交互式模式
